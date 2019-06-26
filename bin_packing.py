@@ -18,9 +18,11 @@ class Bin:
             for sample_id in samples_id:
                 self.add_sample(sample_id)
 
+
     def evaluate(self):
         fitness = (self.used_space[0][0] / self.instance.bin_constraints[0] + self.used_space[0][1] / self.instance.bin_constraints[1]) ** 2
         self.fitness = fitness
+
 
     def verify_capacity(self, sample_id):
         partial_used_space = np.copy(self.used_space)
@@ -30,6 +32,7 @@ class Bin:
             return True
 
         return False
+
 
     def add_sample(self, sample_id):
         self.samples.append(sample_id)
@@ -43,6 +46,8 @@ class Solution:
 
         self.instance = instance
         self.bin_packs = []
+        self.eliminated_elements = []
+
 
     def get_num_bins(self):
         return len(self.bin_packs)
@@ -56,6 +61,7 @@ class Greedy:
             raise TypeError("ERROR: solution variable is not decision_tree.Solution. Type: " + type(solution))
         self.instance = instance
         self.solution = solution
+
 
     def greedy_construction(self):
         # List of index to sort matrix of data by first column and sort descending
@@ -74,6 +80,7 @@ class Greedy:
             for data_index_to_new_bin in data_indexes_to_new_bin:
                 data_indexes.remove(data_index_to_new_bin)
 
+
     def _create_and_fill_bin(self, data_indexes):
         new_bin = Bin(self.instance)
         for data_index in data_indexes:
@@ -82,6 +89,7 @@ class Greedy:
 
         new_bin.evaluate()
         return new_bin
+
 
     def crossover(self, first_parent, second_parent):
         copy_first_parent = np.copy(first_parent)
@@ -102,17 +110,46 @@ class Greedy:
         second_parent_splits = second_parent_splits[index_sorted_second_parent]
 
         # Elements of parents to insert in oposite child
-        elements_splited_first_child = np.array(copy_first_parent[first_parent_splits[0]:first_parent_splits[1]])
-        elements_splited_second_child = np.array(copy_second_parent[second_parent_splits[0]:second_parent_splits[1]])
+        bins_splited_first_child = np.array(copy_first_parent[first_parent_splits[0]:first_parent_splits[1]])
+        bins_splited_second_child = np.array(copy_second_parent[second_parent_splits[0]:second_parent_splits[1]])
 
         # Create first child
         first_child = np.concatenate([copy_first_parent[:first_parent_splits[0]],
-                                     elements_splited_second_child,
+                                     bins_splited_second_child,
                                      copy_first_parent[first_parent_splits[0]:]])
 
         # Create second child
         second_child = np.concatenate([copy_second_parent[:second_parent_splits[0]],
-                                       elements_splited_first_child,
+                                       bins_splited_first_child,
                                        copy_second_parent[second_parent_splits[0]:]])
 
-        #TODO Remove duplicated elements to generate the child, consider to make another function for that
+        self._delete_bins_with_duplicated_elements(bins_splited_first_child)
+        self._delete_bins_with_duplicated_elements(bins_splited_second_child)
+
+
+    def _delete_bins_with_duplicated_elements(self, new_bins):
+        # Find bins with repeated elements
+        bin_with_equal_elements = []
+        for new_bin in new_bins:
+            for new_element in new_bin:
+                equal_element = False
+                for current_bin in self.solution.bin_packs:
+                    for current_element in current_bin:
+                        if current_element == new_element:
+                            equal_element = True
+                            break
+                    if equal_element == True:
+                        bin_with_equal_elements.append(current_bin)
+                        break
+                if equal_element == True:
+                    break
+
+        # Add elements of bins with repeated elements to eliminated_elements
+        for bin in bin_with_equal_elements:
+            for current_bin in self.solution.bin_packs:
+                if bin == current_bin:
+                    self.solution.eliminated_elements.append(current_bin)
+
+        # Remove bins with repeated elements
+        for bin in bin_with_equal_elements:
+            self.solution.bin_packs.remove(bin)
