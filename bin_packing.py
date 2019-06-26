@@ -47,6 +47,8 @@ class Solution:
         self.instance = instance
         self.bin_packs = []
         self.eliminated_elements = []
+        self.size_population = 2
+        self.population = []
 
 
     def get_num_bins(self):
@@ -63,7 +65,21 @@ class Greedy:
         self.solution = solution
 
 
-    def greedy_construction(self):
+    def construct_population(self):
+        for i in range(self.solution.size_population):
+            self.greedy_construction()
+            self.solution.population.append(self.solution.bin_packs)
+
+        self.crossover(self.solution.population[0], self.solution.population[1])
+
+
+    def greedy_construction(self, index_to_start_reconstruction=None):
+        # If this index is not None, we need to destroy the solution starting at this index
+        if index_to_start_reconstruction != None:
+            del self.solution.bin_packs[index_to_start_reconstruction:]
+        else:
+            self.solution.bin_packs = []
+
         # List of index to sort matrix of data by first column and sort descending
         index_to_sort_descending = np.lexsort((-self.instance.data_values[:, 1], -self.instance.data_values[:, 0]))
         self.instance.data_values = self.instance.data_values[index_to_sort_descending]
@@ -131,24 +147,20 @@ class Greedy:
         # Find bins with repeated elements
         bin_with_equal_elements = []
         for new_bin in new_bins:
-            for new_element in new_bin:
+            for new_element in new_bin.samples:
                 equal_element = False
                 for current_bin in self.solution.bin_packs:
-                    for current_element in current_bin:
+                    for current_element in current_bin.samples:
                         if current_element == new_element:
                             equal_element = True
                             break
                     if equal_element == True:
                         bin_with_equal_elements.append(current_bin)
+                        for element_to_eliminate in current_bin.samples:
+                            self.solution.eliminated_elements.append(element_to_eliminate)
                         break
                 if equal_element == True:
                     break
-
-        # Add elements of bins with repeated elements to eliminated_elements
-        for bin in bin_with_equal_elements:
-            for current_bin in self.solution.bin_packs:
-                if bin == current_bin:
-                    self.solution.eliminated_elements.append(current_bin)
 
         # Remove bins with repeated elements
         for bin in bin_with_equal_elements:
