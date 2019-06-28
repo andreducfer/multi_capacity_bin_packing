@@ -52,7 +52,7 @@ class Solution:
             raise TypeError("Error: instance variable is not data_handler.Instance. Type: " + type(instance))
 
         self.instance = instance
-        self.bin_packs = []
+        self.bin_packs = np.array([], dtype=object)
         self.eliminated_elements = []
         self.size_population = 2
         self.population = []
@@ -80,12 +80,16 @@ class Greedy:
         for i in range(0, len(self.solution.population), 2):
             self.crossover(self.solution.population[i], self.solution.population[i + 1])
 
+        print('Hello World!')
+
 
     def construct_population(self):
         for i in range(self.solution.size_population):
             self.greedy_construction(init_randomly=True)
 
-            self.solution.population.append(self.solution.bin_packs)
+            self.solution.population.append(np.copy(self.solution.bin_packs))
+
+            self.solution.bin_packs = np.array([], dtype=object)
 
 
     def greedy_construction(self, init_randomly=False, data_indexes=None):
@@ -99,7 +103,7 @@ class Greedy:
         while len(data_indexes) > 0:
             new_bin = self._create_and_fill_bin(data_indexes)
 
-            self.solution.bin_packs.append(new_bin)
+            self.solution.bin_packs = np.append(self.solution.bin_packs, new_bin)
 
             data_indexes_to_new_bin = new_bin.samples
 
@@ -111,7 +115,7 @@ class Greedy:
         new_bin = Bin(self.instance)
         for data_index in data_indexes:
             if new_bin.verify_capacity(data_index):
-                new_bin.add_sample(data_index)
+                new_bin.add_sample([data_index])
 
         new_bin.evaluate()
         return new_bin
@@ -142,6 +146,7 @@ class Greedy:
         # Create first child
         self.solution.bin_packs = np.copy(copy_first_parent)
         self._delete_bins_with_duplicated_elements(bins_split_second_child)
+        self.local_search()
         first_child = np.concatenate([self.solution.bin_packs[:first_parent_splits[0]],
                                       bins_split_second_child,
                                       self.solution.bin_packs[first_parent_splits[0]:]])
@@ -150,6 +155,7 @@ class Greedy:
         # Create second child
         self.solution.bin_packs = np.copy(copy_second_parent)
         self._delete_bins_with_duplicated_elements(bins_split_first_child)
+        self.local_search()
         second_child = np.concatenate([self.solution.bin_packs[:second_parent_splits[0]],
                                        bins_split_first_child,
                                        self.solution.bin_packs[second_parent_splits[0]:]])
@@ -158,30 +164,31 @@ class Greedy:
 
     def _delete_bins_with_duplicated_elements(self, new_gene_bins):
         # Find bins with repeated elements
-        bin_with_equal_elements = []
+        bins_to_delete = []
         for new_gene_bin in new_gene_bins:
+            if len(bins_to_delete) > 0:
+                for bin_to_delete in bins_to_delete:
+                    self.solution.bin_packs = np.delete(self.solution.bin_packs, bin_to_delete)
+                bins_to_delete = []
             for new_gene_element in new_gene_bin.samples:
                 equal_element = False
-                for current_bin in self.solution.bin_packs:
+                for index_current_bin, current_bin in enumerate(self.solution.bin_packs):
                     for current_element in current_bin.samples:
                         if current_element == new_gene_element:
                             equal_element = True
                             break
                     if equal_element == True:
-                        bin_with_equal_elements.append(current_bin)
+                        bins_to_delete.append(index_current_bin)
                         for element_to_eliminate in current_bin.samples:
                             self.solution.eliminated_elements.append(element_to_eliminate)
                         break
                 if equal_element == True:
                     break
 
-        # Remove bins with repeated elements
-        for bin in bin_with_equal_elements:
-            self.solution.bin_packs.remove(bin)
-
 
     def local_search(self):
-        note_used_samples = []
+        # TODO adicionar evaluate quando meche na BIN
+        not_used_samples = []
         for index, bin in enumerate(self.solution.bin_packs):
             for i in range(len(bin.samples) - 2):
                 changed_bin = False
@@ -193,56 +200,56 @@ class Greedy:
                     index_second = self.solution.eliminated_elements[j + 1]
                     one_excluded_element = self.instance.data_values[index_first]
                     two_excluded_element = one_excluded_element + self.instance.data_values[index_second]
-                    if two_excluded_element >= three_elements:
+                    if two_excluded_element[0] >= three_elements[0] and two_excluded_element[1] >= three_elements[1]:
                         partial_used_space = bin.used_space - three_elements + two_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
                             self.solution.bin_packs[index].add_sample([index_first, index_second])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
-                            note_used_samples.append(bin.samples[i + 2])
+                            not_used_samples.append(bin.samples[i])
+                            not_used_samples.append(bin.samples[i + 1])
+                            not_used_samples.append(bin.samples[i + 2])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
                             break
-                    elif one_excluded_element >= three_elements:
+                    elif one_excluded_element[0] >= three_elements[0] and one_excluded_element[1] >= three_elements[1]:
                         partial_used_space = bin.used_space - three_elements + one_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
                             self.solution.bin_packs[index].add_sample([index_first])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
-                            note_used_samples.append(bin.samples[i + 2])
+                            not_used_samples.append(bin.samples[i])
+                            not_used_samples.append(bin.samples[i + 1])
+                            not_used_samples.append(bin.samples[i + 2])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
                             break
-                    elif two_excluded_element >= two_elements:
+                    elif two_excluded_element[0] >= two_elements[0] and two_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + two_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
                             self.solution.bin_packs[index].add_sample([index_first, index_second])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
+                            not_used_samples.append(bin.samples[i])
+                            not_used_samples.append(bin.samples[i + 1])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
                             break
-                    elif one_excluded_element >= two_elements:
+                    elif one_excluded_element[0] >= two_elements[0] and one_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + one_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
                             self.solution.bin_packs[index].add_sample([index_first])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
+                            not_used_samples.append(bin.samples[i])
+                            not_used_samples.append(bin.samples[i + 1])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
                             break
-                    elif one_excluded_element >= one_element:
+                    elif one_excluded_element[0] >= one_element[0] and one_excluded_element[1] >= one_element[1]:
                         partial_used_space = bin.used_space - one_element + one_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
                             self.solution.bin_packs[index].add_sample([index_first])
-                            note_used_samples.append(bin.samples[i])
+                            not_used_samples.append(bin.samples[i])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i]])
                             self.solution.eliminated_elements.remove(index_first)
                             break
@@ -250,7 +257,7 @@ class Greedy:
                 if changed_bin == True:
                     break
 
-        note_used_samples = note_used_samples + self.solution.eliminated_elements[:]
+        not_used_samples = not_used_samples + self.solution.eliminated_elements[:]
         self.solution.eliminated_elements = []
-        note_used_samples = sorted(note_used_samples)
-        self.greedy_construction(data_indexes=note_used_samples)
+        not_used_samples = sorted(not_used_samples)
+        self.greedy_construction(data_indexes=not_used_samples)

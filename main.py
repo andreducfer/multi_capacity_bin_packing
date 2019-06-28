@@ -51,7 +51,7 @@ if __name__ == '__main__':
             solution = Solution(instance)
 
             greedy = Greedy(instance, solution)
-            greedy.construct_population()
+            greedy.genetic_algorithm()
 
             print("'%d' bins for seed '%d'" % (greedy.solution.get_num_bins(), seed))
 
