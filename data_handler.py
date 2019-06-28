@@ -10,6 +10,7 @@ class Instance:
         self.max_time = max_time
 
         self._load_dataset(self.instance_path)
+        self._sort_data_values()
 
     def _load_dataset(self, instance_path):
         with open(instance_path) as fp:
@@ -23,3 +24,8 @@ class Instance:
             for i, line in enumerate(fp):
                 values = line.split()
                 self.data_values[i] = np.array(values[:]).astype(np.float)
+
+    def _sort_data_values(self):
+        # List of index to sort matrix of data by first column and sort descending
+        index_to_sort_descending = np.lexsort((-self.data_values[:, 1], -self.data_values[:, 0]))
+        self.data_values = self.data_values[index_to_sort_descending]
