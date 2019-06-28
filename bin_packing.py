@@ -88,14 +88,10 @@ class Greedy:
             self.solution.population.append(self.solution.bin_packs)
 
 
-    def greedy_construction(self, init_randomly=False, index_to_start_reconstruction=None):
-        # If this index is not None, we need to destroy the solution starting at this index
-        if index_to_start_reconstruction != None:
-            del self.solution.bin_packs[index_to_start_reconstruction:]
-        else:
-            self.solution.bin_packs = []
+    def greedy_construction(self, init_randomly=False, data_indexes=None):
 
-        data_indexes = list(range(len(self.instance.data_values)))
+        if data_indexes is None:
+            data_indexes = list(range(len(self.instance.data_values)))
 
         if init_randomly:
             np.random.shuffle(data_indexes)
@@ -186,7 +182,7 @@ class Greedy:
 
     def local_search(self):
         note_used_samples = []
-        for bin in self.solution.bin_packs:
+        for index, bin in enumerate(self.solution.bin_packs):
             for i in range(len(bin.samples) - 2):
                 changed_bin = False
                 one_element = self.instance.data_values[bin.samples[i]]
@@ -197,51 +193,58 @@ class Greedy:
                     index_second = self.solution.eliminated_elements[j + 1]
                     one_excluded_element = self.instance.data_values[index_first]
                     two_excluded_element = one_excluded_element + self.instance.data_values[index_second]
-                    if one_excluded_element >= three_elements:
-                        partial_used_space = bin.used_space - three_elements + one_excluded_element
+                    if two_excluded_element >= three_elements:
+                        partial_used_space = bin.used_space - three_elements + two_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
-                            self.solution.bin_packs[bin].add_sample([index_first])
+                            self.solution.bin_packs[index].add_sample([index_first, index_second])
                             note_used_samples.append(bin.samples[i])
                             note_used_samples.append(bin.samples[i + 1])
                             note_used_samples.append(bin.samples[i + 2])
-                            self.solution.bin_packs[bin].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
+                            self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
+                            self.solution.eliminated_elements.remove(index_first)
+                            self.solution.eliminated_elements.remove(index_second)
+                            break
+                    elif one_excluded_element >= three_elements:
+                        partial_used_space = bin.used_space - three_elements + one_excluded_element
+                        if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
+                            changed_bin = True
+                            self.solution.bin_packs[index].add_sample([index_first])
+                            note_used_samples.append(bin.samples[i])
+                            note_used_samples.append(bin.samples[i + 1])
+                            note_used_samples.append(bin.samples[i + 2])
+                            self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
+                            self.solution.eliminated_elements.remove(index_first)
+                            break
+                    elif two_excluded_element >= two_elements:
+                        partial_used_space = bin.used_space - two_elements + two_excluded_element
+                        if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
+                            changed_bin = True
+                            self.solution.bin_packs[index].add_sample([index_first, index_second])
+                            note_used_samples.append(bin.samples[i])
+                            note_used_samples.append(bin.samples[i + 1])
+                            self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
+                            self.solution.eliminated_elements.remove(index_first)
+                            self.solution.eliminated_elements.remove(index_second)
                             break
                     elif one_excluded_element >= two_elements:
                         partial_used_space = bin.used_space - two_elements + one_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
-                            self.solution.bin_packs[bin].add_sample([index_first])
+                            self.solution.bin_packs[index].add_sample([index_first])
                             note_used_samples.append(bin.samples[i])
                             note_used_samples.append(bin.samples[i + 1])
-                            self.solution.bin_packs[bin].remove_sample([bin.samples[i], bin.samples[i + 1]])
+                            self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
+                            self.solution.eliminated_elements.remove(index_first)
                             break
-                    elif two_excluded_element >= three_elements:
-                        partial_used_space = bin.used_space - three_elements + two_excluded_element
-                        if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
-                            changed_bin = True
-                            self.solution.bin_packs[bin].add_sample([index_first, index_second])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
-                            note_used_samples.append(bin.samples[i + 2])
-                            self.solution.bin_packs[bin].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
-                        break
-                    elif two_excluded_element >= two_elements:
-                        partial_used_space = bin.used_space - two_elements + two_excluded_element
-                        if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
-                            changed_bin = True
-                            self.solution.bin_packs[bin].add_sample([index_first, index_second])
-                            note_used_samples.append(bin.samples[i])
-                            note_used_samples.append(bin.samples[i + 1])
-                            self.solution.bin_packs[bin].remove_sample([bin.samples[i], bin.samples[i + 1]])
-                        break
                     elif one_excluded_element >= one_element:
                         partial_used_space = bin.used_space - one_element + one_excluded_element
                         if self.instance.bin_constraints[0] >= partial_used_space[0][0] and self.instance.bin_constraints[1] >= partial_used_space[0][1]:
                             changed_bin = True
-                            self.solution.bin_packs[bin].add_sample([index_first])
+                            self.solution.bin_packs[index].add_sample([index_first])
                             note_used_samples.append(bin.samples[i])
-                            self.solution.bin_packs[bin].remove_sample([bin.samples[i]])
+                            self.solution.bin_packs[index].remove_sample([bin.samples[i]])
+                            self.solution.eliminated_elements.remove(index_first)
                             break
 
                 if changed_bin == True:
@@ -249,8 +252,5 @@ class Greedy:
 
         note_used_samples = note_used_samples + self.solution.eliminated_elements[:]
         self.solution.eliminated_elements = []
-        self.first_fit(note_used_samples)
-
-
-    def first_fit(self, sample_ids):
-        pass
+        note_used_samples = sorted(note_used_samples)
+        self.greedy_construction(data_indexes=note_used_samples)
