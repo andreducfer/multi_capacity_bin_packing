@@ -1,6 +1,6 @@
 from data_handler import Instance
 from bin_packing import Solution
-from bin_packing import Greedy
+from bin_packing import Genetic
 
 import argparse
 from os import listdir
@@ -50,7 +50,7 @@ if __name__ == '__main__':
 
             solution = Solution(instance)
 
-            greedy = Greedy(instance, solution)
+            greedy = Genetic(instance, solution)
             greedy.genetic_algorithm()
 
             print("'%d' bins for seed '%d'" % (greedy.solution.get_num_bins(), seed))

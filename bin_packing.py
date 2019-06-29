@@ -53,18 +53,67 @@ class Solution:
 
         self.instance = instance
         self.bin_packs = np.array([], dtype=object)
+        self.best_bin_packs = np.array([], dtype=object)
+        self.best_fitness = np.array([], dtype=float)
         self.eliminated_elements = []
-        self.size_population = 2
-        self.population = []
-        self.new_population = []
+        self.size_population = 100
+        self.size_crossover_to_survive = 50
+        self.size_local_search_to_survive = 30
+        self.size_population_to_survive = 20
+        self.population = np.array([], dtype=object)
+        self.fitness_population = np.array([], dtype=float)
+        self.new_population = np.array([], dtype=object)
+        self.fitness_new_population = np.array([], dtype=float)
+        self.local_search_population = np.array([], dtype=object)
+        self.fitness_local_search_population = np.array([], dtype=float)
 
 
     def get_num_bins(self):
         return len(self.bin_packs)
 
 
+    def calculate_fitness_person(self, new_population=False, local_search=False):
+        sum_bins_fitness = 0
+        for bin in self.bin_packs:
+            sum_bins_fitness = sum_bins_fitness + bin.fitness
 
-class Greedy:
+        fitness_person = sum_bins_fitness / len(self.bin_packs)
+
+        if new_population:
+            self.fitness_new_population = np.append(self.fitness_new_population, fitness_person)
+        elif local_search:
+            self.fitness_local_search_population = np.append(self.fitness_local_search_population, fitness_person)
+        else:
+            self.fitness_population = np.append(self.fitness_population, fitness_person)
+
+
+    def sort_population(self):
+        if len(self.population) > 1:
+            index_sorted_by_fitness = np.argsort(self.fitness_population)
+            self.population = self.population[index_sorted_by_fitness]
+            self.fitness_population = self.fitness_population[index_sorted_by_fitness]
+
+        if len(self.new_population) > 1:
+            index_sorted_by_fitness = np.argsort(self.fitness_new_population)
+            self.new_population = self.new_population[index_sorted_by_fitness]
+            self.fitness_new_population = self.fitness_new_population[index_sorted_by_fitness]
+
+        if len(self.local_search_population) > 1:
+            index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)
+            self.local_search_population = self.local_search_population[index_sorted_by_fitness]
+            self.fitness_local_search_population = self.fitness_local_search_population[index_sorted_by_fitness]
+
+
+    def print_and_export(self):
+        pack = []
+
+        for i, bin in enumerate(self.best_bin_packs):
+            bin_info = 'Bin ' + str(i) + 'samples: '
+            for sample in bin.samples:
+                bin_template = str(sample) + ', '
+
+
+class Genetic:
     def __init__(self, instance, solution):
         if not isinstance(instance, Instance):
             raise TypeError("Error: instance variable is not data_handler.Instance. Type: " + type(instance))
@@ -77,22 +126,29 @@ class Greedy:
     def genetic_algorithm(self):
         self.construct_population()
 
-        for i in range(0, len(self.solution.population), 2):
-            self.crossover(self.solution.population[i], self.solution.population[i + 1])
+        for k in range(10):
 
-        print('Hello World!')
+            for i in range(0, len(self.solution.population), 2):
+                self.crossover(self.solution.population[i], self.solution.population[i + 1])
+
+            self.construction_of_local_search_population()
+            self.construction_of_new_population()
 
 
     def construct_population(self):
-        for i in range(self.solution.size_population):
-            self.greedy_construction(init_randomly=True)
+        # self.first_fit()
 
-            self.solution.population.append(np.copy(self.solution.bin_packs))
+        for i in range(self.solution.size_population):
+            self.first_fit(init_randomly=True)
+
+            self.solution.population = np.append(self.solution.population, np.copy(self.solution.bin_packs))
 
             self.solution.bin_packs = np.array([], dtype=object)
 
+        self.solution.sort_population()
 
-    def greedy_construction(self, init_randomly=False, data_indexes=None):
+
+    def first_fit(self, init_randomly=False, data_indexes=None, new_population=False, local_search=False):
 
         if data_indexes is None:
             data_indexes = list(range(len(self.instance.data_values)))
@@ -101,7 +157,12 @@ class Greedy:
             np.random.shuffle(data_indexes)
 
         while len(data_indexes) > 0:
-            new_bin = self._create_and_fill_bin(data_indexes)
+            # Create and fill a bin
+            new_bin = Bin(self.instance)
+            for data_index in data_indexes:
+                if new_bin.verify_capacity(data_index):
+                    new_bin.add_sample([data_index])
+            new_bin.evaluate()
 
             self.solution.bin_packs = np.append(self.solution.bin_packs, new_bin)
 
@@ -110,15 +171,7 @@ class Greedy:
             for data_index_to_new_bin in data_indexes_to_new_bin:
                 data_indexes.remove(data_index_to_new_bin)
 
-
-    def _create_and_fill_bin(self, data_indexes):
-        new_bin = Bin(self.instance)
-        for data_index in data_indexes:
-            if new_bin.verify_capacity(data_index):
-                new_bin.add_sample([data_index])
-
-        new_bin.evaluate()
-        return new_bin
+        self.solution.calculate_fitness_person(new_population=new_population, local_search=local_search)
 
 
     def crossover(self, first_parent, second_parent):
@@ -146,20 +199,20 @@ class Greedy:
         # Create first child
         self.solution.bin_packs = np.copy(copy_first_parent)
         self._delete_bins_with_duplicated_elements(bins_split_second_child)
-        self.local_search()
+        self.local_search(new_population=True)
         first_child = np.concatenate([self.solution.bin_packs[:first_parent_splits[0]],
                                       bins_split_second_child,
                                       self.solution.bin_packs[first_parent_splits[0]:]])
-        self.solution.new_population.append(first_child)
+        self.solution.new_population = np.append(self.solution.new_population, first_child)
 
         # Create second child
         self.solution.bin_packs = np.copy(copy_second_parent)
         self._delete_bins_with_duplicated_elements(bins_split_first_child)
-        self.local_search()
+        self.local_search(new_population=True)
         second_child = np.concatenate([self.solution.bin_packs[:second_parent_splits[0]],
                                        bins_split_first_child,
                                        self.solution.bin_packs[second_parent_splits[0]:]])
-        self.solution.new_population.append(second_child)
+        self.solution.new_population = np.append(self.solution.new_population, second_child)
 
 
     def _delete_bins_with_duplicated_elements(self, new_gene_bins):
@@ -186,8 +239,7 @@ class Greedy:
                     break
 
 
-    def local_search(self):
-        # TODO adicionar evaluate quando meche na BIN
+    def local_search(self, new_population=False, local_search=False):
         not_used_samples = []
         for index, bin in enumerate(self.solution.bin_packs):
             for i in range(len(bin.samples) - 2):
@@ -211,6 +263,7 @@ class Greedy:
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
+                            self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= three_elements[0] and one_excluded_element[1] >= three_elements[1]:
                         partial_used_space = bin.used_space - three_elements + one_excluded_element
@@ -222,6 +275,7 @@ class Greedy:
                             not_used_samples.append(bin.samples[i + 2])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
+                            self.solution.bin_packs[index].evaluate()
                             break
                     elif two_excluded_element[0] >= two_elements[0] and two_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + two_excluded_element
@@ -233,6 +287,7 @@ class Greedy:
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
+                            self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= two_elements[0] and one_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + one_excluded_element
@@ -243,6 +298,7 @@ class Greedy:
                             not_used_samples.append(bin.samples[i + 1])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
+                            self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= one_element[0] and one_excluded_element[1] >= one_element[1]:
                         partial_used_space = bin.used_space - one_element + one_excluded_element
@@ -252,6 +308,7 @@ class Greedy:
                             not_used_samples.append(bin.samples[i])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i]])
                             self.solution.eliminated_elements.remove(index_first)
+                            self.solution.bin_packs[index].evaluate()
                             break
 
                 if changed_bin == True:
@@ -260,4 +317,65 @@ class Greedy:
         not_used_samples = not_used_samples + self.solution.eliminated_elements[:]
         self.solution.eliminated_elements = []
         not_used_samples = sorted(not_used_samples)
-        self.greedy_construction(data_indexes=not_used_samples)
+        self.first_fit(data_indexes=not_used_samples, new_population=new_population, local_search=local_search)
+
+
+    def construction_of_new_population(self):
+        self.solution.sort_population()
+
+        crossover_population_to_survive = np.copy(self.solution.new_population[:self.solution.size_crossover_to_survive])
+        fitness_crossover_to_survive = np.copy(self.solution.fitness_new_population[:self.solution.size_crossover_to_survive])
+
+        local_search_population_to_survive = np.copy(self.solution.local_search_population[:self.solution.size_local_search_to_survive])
+        fitness_local_search_population_to_survive = np.copy(self.solution.fitness_local_search_population[:self.solution.size_local_search_to_survive])
+
+        old_population_to_survive = np.copy(self.solution.population[:self.solution.size_population_to_survive])
+        fitness_old_population_to_survive = np.copy(self.solution.fitness_population[:self.solution.size_population_to_survive])
+
+        self.solution.population = np.array([], dtype=object)
+        self.solution.fitness_population = np.array([], dtype=float)
+
+        self.solution.population = np.concatenate([crossover_population_to_survive, local_search_population_to_survive, old_population_to_survive])
+        self.solution.fitness_population = np.concatenate([fitness_crossover_to_survive, fitness_local_search_population_to_survive, fitness_old_population_to_survive])
+
+
+    def construction_of_local_search_population(self):
+        random_indexes = np.random.randint(self.solution.size_population, size=self.solution.size_local_search_to_survive)
+
+        self.solution.local_search_population = np.array([], dtype=object)
+        self.solution.fitness_local_search_population = np.array([], dtype=float)
+
+        new_local_search_population = np.array([], dtype=object)
+        new_local_search_population_fitness = np.array([], dtype=float)
+
+        for index in random_indexes:
+            self.solution.local_search_population = np.append(self.solution.local_search_population, self.solution.population[index])
+            self.solution.fitness_local_search_population = np.append(self.solution.fitness_local_search_population, self.solution.fitness_population[index])
+
+
+        for i, bin_pack in enumerate(self.solution.local_search_population):
+            best_binpack = np.copy(bin_pack)
+            best_binpack_fitness = np.copy(self.solution.fitness_local_search_population[i])
+            random_indexes_destoy_solution = np.random.randint(len(bin_pack), size=self.solution.size_local_search_to_survive)
+
+            for index_destroy_ahead in random_indexes_destoy_solution:
+                self.solution.bin_packs = np.array([], dtype=object)
+                self.solution.bin_packs = np.copy(bin_pack)
+                self.solution.eliminated_elements = []
+                for index_bin in range(index_destroy_ahead, len(self.solution.bin_packs)):
+                    for sample in self.solution.bin_packs[index_bin]:
+                        self.solution.eliminated_elements.append(sample)
+
+                self.solution.bin_packs = self.solution.bin_packs[:index_destroy_ahead]
+
+                self.local_search(local_search=True)
+
+                if best_binpack_fitness <= self.solution.fitness_local_search_population:
+                    best_binpack = np.copy(self.solution.bin_packs)
+                    best_binpack_fitness = np.copy(self.solution.fitness_local_search_population)
+
+            new_local_search_population = np.append(new_local_search_population, best_binpack)
+            new_local_search_population_fitness = np.append(new_local_search_population_fitness, best_binpack_fitness)
+
+        self.solution.local_search_population = np.copy(new_local_search_population)
+        self.solution.fitness_local_search_population = np.copy(new_local_search_population_fitness)
