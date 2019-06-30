@@ -63,11 +63,11 @@ class Solution:
         self.fitness_new_population = np.array([], dtype=float)
         self.fitness_local_search_population = np.array([], dtype=float)
 
-        self.best_bin_pack = [] #np.array([], dtype=object)
-        self.bin_packs = [] #np.array([], dtype=object)
-        self.population = [] #np.array([], dtype=object)
-        self.new_population = [] #np.array([], dtype=object)
-        self.local_search_population = [] #np.array([], dtype=object)
+        self.best_bin_pack = []
+        self.bin_packs = []
+        self.population = []
+        self.new_population = []
+        self.local_search_population = []
 
 
     def get_num_bins(self):
@@ -86,7 +86,6 @@ class Solution:
         elif local_search and fitness_index_to_replace is not None:
             self.fitness_local_search_population[fitness_index_to_replace] = fitness_person
         elif local_search:
-            #assert fitness_index_to_replace is not None
             self.fitness_local_search_population = np.append(self.fitness_local_search_population, fitness_person)
         else:
             self.fitness_population = np.append(self.fitness_population, fitness_person)
@@ -140,6 +139,7 @@ class Genetic:
         for k in range(10):
 
             for i in range(0, len(self.solution.population), 2):
+                self.solution.bin_packs = []
                 self.crossover(self.solution.population[i], self.solution.population[i + 1])
 
             self.construction_of_local_search_population()
@@ -200,6 +200,7 @@ class Genetic:
                 data_indexes.remove(data_index_to_new_bin)
 
         self.solution.calculate_fitness_person(new_population=new_population, local_search=local_search, fitness_index_to_replace=fitness_index_to_replace)
+        # TODO MUDAR FITNESS PARA NUMERO DE BINS
 
 
     def crossover(self, first_parent, second_parent):
@@ -227,28 +228,20 @@ class Genetic:
         # Create first child
         self.solution.bin_packs = deepcopy(copy_first_parent)
         self._delete_bins_with_duplicated_elements(bins_split_second_child)
-        self.local_search(new_population=True)
-
-        #first_child = np.concatenate([self.solution.bin_packs[:first_parent_splits[0]],
-        #                              bins_split_second_child,
-        #                              self.solution.bin_packs[first_parent_splits[0]:]])
+        self.local_search(new_population=True, local_search=False)
         first_child = self.solution.bin_packs[:first_parent_splits[0]] + bins_split_second_child + self.solution.bin_packs[first_parent_splits[0]:]
 
-        #self.solution.new_population = np.append(self.solution.new_population, first_child)
         self.solution.new_population.append(first_child)
+        self.solution.bin_packs = []
 
         # Create second child
         self.solution.bin_packs = deepcopy(copy_second_parent)
         self._delete_bins_with_duplicated_elements(bins_split_first_child)
-        self.local_search(new_population=True)
-
-        #second_child = np.concatenate([self.solution.bin_packs[:second_parent_splits[0]],
-        #                               bins_split_first_child,
-        #                               self.solution.bin_packs[second_parent_splits[0]:]])
+        self.local_search(new_population=True, local_search=False)
         second_child = self.solution.bin_packs[:second_parent_splits[0]] + bins_split_first_child + self.solution.bin_packs[second_parent_splits[0]:]
 
-        #self.solution.new_population = np.append(self.solution.new_population, second_child)
         self.solution.new_population.append(second_child)
+        self.solution.bin_packs = []
 
 
     def _delete_bins_with_duplicated_elements(self, new_gene_bins):
@@ -368,7 +361,7 @@ class Genetic:
         old_population_to_survive = deepcopy(self.solution.population[:self.solution.size_population_to_survive])
         fitness_old_population_to_survive = np.copy(self.solution.fitness_population[:self.solution.size_population_to_survive])
 
-        # self.solution.population = np.concatenate([crossover_population_to_survive, local_search_population_to_survive, old_population_to_survive])
+        self.solution.population = []
         self.solution.population = crossover_population_to_survive + local_search_population_to_survive + old_population_to_survive
 
         self.solution.fitness_population = np.array([], dtype=float)
@@ -381,13 +374,9 @@ class Genetic:
         self.solution.local_search_population = []
         self.solution.fitness_local_search_population = np.array([], dtype=float)
 
-        new_local_search_population = []
-        new_local_search_population_fitness = np.array([], dtype=float)
-
         for index in random_indexes:
             self.solution.local_search_population.append(deepcopy(self.solution.population[index]))
             self.solution.fitness_local_search_population = np.append(self.solution.fitness_local_search_population, self.solution.fitness_population[index])
-
 
         for i, bin_pack in enumerate(self.solution.local_search_population):
             best_binpack = deepcopy(bin_pack)
@@ -395,7 +384,7 @@ class Genetic:
             random_indexes_destroy_solution = np.random.randint(len(bin_pack), size=self.solution.size_local_search_to_survive)
 
             for index_destroy_ahead in random_indexes_destroy_solution:
-                #self.solution.bin_packs = []
+                self.solution.bin_packs = []
                 self.solution.bin_packs = deepcopy(bin_pack)
                 self.solution.eliminated_elements = []
                 for index_bin in range(index_destroy_ahead, len(self.solution.bin_packs)):
@@ -410,8 +399,8 @@ class Genetic:
                     best_binpack = deepcopy(self.solution.bin_packs)
                     best_binpack_fitness = np.copy(self.solution.fitness_local_search_population[i])
 
-            # new_local_search_population.append(best_binpack)
-            # new_local_search_population_fitness = np.append(new_local_search_population_fitness, best_binpack_fitness)
-
             self.solution.local_search_population[i] = deepcopy(best_binpack)
             self.solution.fitness_local_search_population[i] = np.copy(best_binpack_fitness)
+
+        self.solution.bin_packs = []
+        self.solution.eliminated_elements = []
