@@ -1,7 +1,7 @@
 from data_handler import Instance
 
 import numpy as np
-
+from copy import deepcopy
 
 class Bin:
     def __init__(self, instance, samples_id=None):
@@ -52,27 +52,29 @@ class Solution:
             raise TypeError("Error: instance variable is not data_handler.Instance. Type: " + type(instance))
 
         self.instance = instance
-        self.bin_packs = np.array([], dtype=object)
-        self.best_bin_packs = np.array([], dtype=object)
-        self.best_fitness = np.array([], dtype=float)
         self.eliminated_elements = []
-        self.size_population = 100
-        self.size_crossover_to_survive = 50
-        self.size_local_search_to_survive = 30
-        self.size_population_to_survive = 20
-        self.population = np.array([], dtype=object)
+        self.size_population = 10
+        self.size_crossover_to_survive = 5
+        self.size_local_search_to_survive = 3
+        self.size_population_to_survive = 2
+
+        self.best_fitness = 0
         self.fitness_population = np.array([], dtype=float)
-        self.new_population = np.array([], dtype=object)
         self.fitness_new_population = np.array([], dtype=float)
-        self.local_search_population = np.array([], dtype=object)
         self.fitness_local_search_population = np.array([], dtype=float)
+
+        self.best_bin_pack = [] #np.array([], dtype=object)
+        self.bin_packs = [] #np.array([], dtype=object)
+        self.population = [] #np.array([], dtype=object)
+        self.new_population = [] #np.array([], dtype=object)
+        self.local_search_population = [] #np.array([], dtype=object)
 
 
     def get_num_bins(self):
         return len(self.bin_packs)
 
 
-    def calculate_fitness_person(self, new_population=False, local_search=False):
+    def calculate_fitness_person(self, new_population=False, local_search=False, fitness_index_to_replace=None):
         sum_bins_fitness = 0
         for bin in self.bin_packs:
             sum_bins_fitness = sum_bins_fitness + bin.fitness
@@ -81,7 +83,10 @@ class Solution:
 
         if new_population:
             self.fitness_new_population = np.append(self.fitness_new_population, fitness_person)
+        elif local_search and fitness_index_to_replace is not None:
+            self.fitness_local_search_population[fitness_index_to_replace] = fitness_person
         elif local_search:
+            #assert fitness_index_to_replace is not None
             self.fitness_local_search_population = np.append(self.fitness_local_search_population, fitness_person)
         else:
             self.fitness_population = np.append(self.fitness_population, fitness_person)
@@ -89,18 +94,24 @@ class Solution:
 
     def sort_population(self):
         if len(self.population) > 1:
-            index_sorted_by_fitness = np.argsort(self.fitness_population)
-            self.population = self.population[index_sorted_by_fitness]
+            index_sorted_by_fitness = np.argsort(self.fitness_population)[::-1]
+
+            self.population = [self.population[i] for i in index_sorted_by_fitness]
+
             self.fitness_population = self.fitness_population[index_sorted_by_fitness]
 
         if len(self.new_population) > 1:
-            index_sorted_by_fitness = np.argsort(self.fitness_new_population)
-            self.new_population = self.new_population[index_sorted_by_fitness]
+            index_sorted_by_fitness = np.argsort(self.fitness_new_population)[::-1]
+
+            self.new_population = [self.new_population[i] for i in index_sorted_by_fitness]
+
             self.fitness_new_population = self.fitness_new_population[index_sorted_by_fitness]
 
         if len(self.local_search_population) > 1:
-            index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)
-            self.local_search_population = self.local_search_population[index_sorted_by_fitness]
+            index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)[::-1]
+
+            self.local_search_population = [self.local_search_population[i] for i in index_sorted_by_fitness]
+
             self.fitness_local_search_population = self.fitness_local_search_population[index_sorted_by_fitness]
 
 
@@ -134,21 +145,38 @@ class Genetic:
             self.construction_of_local_search_population()
             self.construction_of_new_population()
 
+            self.find_best_solution()
+
+        print("Best fitness: %.2f" % self.solution.best_fitness)
+
+
+    def find_best_solution(self):
+        best_current_solution_index = np.argmax(self.solution.fitness_population)
+        best_current_solution_fitness = self.solution.fitness_population[best_current_solution_index]
+
+        if(best_current_solution_fitness >= self.solution.best_fitness):
+            self.solution.best_bin_pack = deepcopy(self.solution.population[best_current_solution_index])
+            self.solution.best_fitness = best_current_solution_fitness
+
 
     def construct_population(self):
-        # self.first_fit()
-
         for i in range(self.solution.size_population):
-            self.first_fit(init_randomly=True)
+            if i == 0:
+                init_randomly = False
+            else:
+                init_randomly = True
 
-            self.solution.population = np.append(self.solution.population, np.copy(self.solution.bin_packs))
+            self.first_fit(init_randomly=init_randomly)
+            print('Number bins: ' + str(self.solution.get_num_bins()))
 
-            self.solution.bin_packs = np.array([], dtype=object)
+            self.solution.population.append(deepcopy(self.solution.bin_packs))
+
+            self.solution.bin_packs = []
 
         self.solution.sort_population()
 
 
-    def first_fit(self, init_randomly=False, data_indexes=None, new_population=False, local_search=False):
+    def first_fit(self, init_randomly=False, data_indexes=None, new_population=False, local_search=False, fitness_index_to_replace=None):
 
         if data_indexes is None:
             data_indexes = list(range(len(self.instance.data_values)))
@@ -164,19 +192,19 @@ class Genetic:
                     new_bin.add_sample([data_index])
             new_bin.evaluate()
 
-            self.solution.bin_packs = np.append(self.solution.bin_packs, new_bin)
+            self.solution.bin_packs.append(new_bin)
 
             data_indexes_to_new_bin = new_bin.samples
 
             for data_index_to_new_bin in data_indexes_to_new_bin:
                 data_indexes.remove(data_index_to_new_bin)
 
-        self.solution.calculate_fitness_person(new_population=new_population, local_search=local_search)
+        self.solution.calculate_fitness_person(new_population=new_population, local_search=local_search, fitness_index_to_replace=fitness_index_to_replace)
 
 
     def crossover(self, first_parent, second_parent):
-        copy_first_parent = np.copy(first_parent)
-        copy_second_parent = np.copy(second_parent)
+        copy_first_parent = deepcopy(first_parent)
+        copy_second_parent = deepcopy(second_parent)
 
         # Generate random numbers with at most the minor size of the parents and use to split the two parents
         min_size_index_to_split = len(copy_first_parent) if len(copy_first_parent) < len(copy_second_parent) else len(copy_second_parent)
@@ -193,26 +221,34 @@ class Genetic:
         second_parent_splits = second_parent_splits[index_sorted_second_parent]
 
         # Elements of parents to insert in opposite child
-        bins_split_first_child = np.array(copy_first_parent[first_parent_splits[0]:first_parent_splits[1]])
-        bins_split_second_child = np.array(copy_second_parent[second_parent_splits[0]:second_parent_splits[1]])
+        bins_split_first_child = deepcopy(copy_first_parent[first_parent_splits[0]:first_parent_splits[1]])
+        bins_split_second_child = deepcopy(copy_second_parent[second_parent_splits[0]:second_parent_splits[1]])
 
         # Create first child
-        self.solution.bin_packs = np.copy(copy_first_parent)
+        self.solution.bin_packs = deepcopy(copy_first_parent)
         self._delete_bins_with_duplicated_elements(bins_split_second_child)
         self.local_search(new_population=True)
-        first_child = np.concatenate([self.solution.bin_packs[:first_parent_splits[0]],
-                                      bins_split_second_child,
-                                      self.solution.bin_packs[first_parent_splits[0]:]])
-        self.solution.new_population = np.append(self.solution.new_population, first_child)
+
+        #first_child = np.concatenate([self.solution.bin_packs[:first_parent_splits[0]],
+        #                              bins_split_second_child,
+        #                              self.solution.bin_packs[first_parent_splits[0]:]])
+        first_child = self.solution.bin_packs[:first_parent_splits[0]] + bins_split_second_child + self.solution.bin_packs[first_parent_splits[0]:]
+
+        #self.solution.new_population = np.append(self.solution.new_population, first_child)
+        self.solution.new_population.append(first_child)
 
         # Create second child
-        self.solution.bin_packs = np.copy(copy_second_parent)
+        self.solution.bin_packs = deepcopy(copy_second_parent)
         self._delete_bins_with_duplicated_elements(bins_split_first_child)
         self.local_search(new_population=True)
-        second_child = np.concatenate([self.solution.bin_packs[:second_parent_splits[0]],
-                                       bins_split_first_child,
-                                       self.solution.bin_packs[second_parent_splits[0]:]])
-        self.solution.new_population = np.append(self.solution.new_population, second_child)
+
+        #second_child = np.concatenate([self.solution.bin_packs[:second_parent_splits[0]],
+        #                               bins_split_first_child,
+        #                               self.solution.bin_packs[second_parent_splits[0]:]])
+        second_child = self.solution.bin_packs[:second_parent_splits[0]] + bins_split_first_child + self.solution.bin_packs[second_parent_splits[0]:]
+
+        #self.solution.new_population = np.append(self.solution.new_population, second_child)
+        self.solution.new_population.append(second_child)
 
 
     def _delete_bins_with_duplicated_elements(self, new_gene_bins):
@@ -221,7 +257,7 @@ class Genetic:
         for new_gene_bin in new_gene_bins:
             if len(bins_to_delete) > 0:
                 for bin_to_delete in bins_to_delete:
-                    self.solution.bin_packs = np.delete(self.solution.bin_packs, bin_to_delete)
+                    del self.solution.bin_packs[bin_to_delete]
                 bins_to_delete = []
             for new_gene_element in new_gene_bin.samples:
                 equal_element = False
@@ -239,7 +275,7 @@ class Genetic:
                     break
 
 
-    def local_search(self, new_population=False, local_search=False):
+    def local_search(self, new_population=False, local_search=False, fitness_index_to_replace=None):
         not_used_samples = []
         for index, bin in enumerate(self.solution.bin_packs):
             for i in range(len(bin.samples) - 2):
@@ -317,65 +353,65 @@ class Genetic:
         not_used_samples = not_used_samples + self.solution.eliminated_elements[:]
         self.solution.eliminated_elements = []
         not_used_samples = sorted(not_used_samples)
-        self.first_fit(data_indexes=not_used_samples, new_population=new_population, local_search=local_search)
+        self.first_fit(data_indexes=not_used_samples, new_population=new_population, local_search=local_search, fitness_index_to_replace=fitness_index_to_replace)
 
 
     def construction_of_new_population(self):
         self.solution.sort_population()
 
-        crossover_population_to_survive = np.copy(self.solution.new_population[:self.solution.size_crossover_to_survive])
+        crossover_population_to_survive = deepcopy(self.solution.new_population[:self.solution.size_crossover_to_survive])
         fitness_crossover_to_survive = np.copy(self.solution.fitness_new_population[:self.solution.size_crossover_to_survive])
 
-        local_search_population_to_survive = np.copy(self.solution.local_search_population[:self.solution.size_local_search_to_survive])
+        local_search_population_to_survive = deepcopy(self.solution.local_search_population[:self.solution.size_local_search_to_survive])
         fitness_local_search_population_to_survive = np.copy(self.solution.fitness_local_search_population[:self.solution.size_local_search_to_survive])
 
-        old_population_to_survive = np.copy(self.solution.population[:self.solution.size_population_to_survive])
+        old_population_to_survive = deepcopy(self.solution.population[:self.solution.size_population_to_survive])
         fitness_old_population_to_survive = np.copy(self.solution.fitness_population[:self.solution.size_population_to_survive])
 
-        self.solution.population = np.array([], dtype=object)
-        self.solution.fitness_population = np.array([], dtype=float)
+        # self.solution.population = np.concatenate([crossover_population_to_survive, local_search_population_to_survive, old_population_to_survive])
+        self.solution.population = crossover_population_to_survive + local_search_population_to_survive + old_population_to_survive
 
-        self.solution.population = np.concatenate([crossover_population_to_survive, local_search_population_to_survive, old_population_to_survive])
+        self.solution.fitness_population = np.array([], dtype=float)
         self.solution.fitness_population = np.concatenate([fitness_crossover_to_survive, fitness_local_search_population_to_survive, fitness_old_population_to_survive])
 
 
     def construction_of_local_search_population(self):
         random_indexes = np.random.randint(self.solution.size_population, size=self.solution.size_local_search_to_survive)
 
-        self.solution.local_search_population = np.array([], dtype=object)
+        self.solution.local_search_population = []
         self.solution.fitness_local_search_population = np.array([], dtype=float)
 
-        new_local_search_population = np.array([], dtype=object)
+        new_local_search_population = []
         new_local_search_population_fitness = np.array([], dtype=float)
 
         for index in random_indexes:
-            self.solution.local_search_population = np.append(self.solution.local_search_population, self.solution.population[index])
+            self.solution.local_search_population.append(deepcopy(self.solution.population[index]))
             self.solution.fitness_local_search_population = np.append(self.solution.fitness_local_search_population, self.solution.fitness_population[index])
 
 
         for i, bin_pack in enumerate(self.solution.local_search_population):
-            best_binpack = np.copy(bin_pack)
+            best_binpack = deepcopy(bin_pack)
             best_binpack_fitness = np.copy(self.solution.fitness_local_search_population[i])
-            random_indexes_destoy_solution = np.random.randint(len(bin_pack), size=self.solution.size_local_search_to_survive)
+            random_indexes_destroy_solution = np.random.randint(len(bin_pack), size=self.solution.size_local_search_to_survive)
 
-            for index_destroy_ahead in random_indexes_destoy_solution:
-                self.solution.bin_packs = np.array([], dtype=object)
-                self.solution.bin_packs = np.copy(bin_pack)
+            for index_destroy_ahead in random_indexes_destroy_solution:
+                #self.solution.bin_packs = []
+                self.solution.bin_packs = deepcopy(bin_pack)
                 self.solution.eliminated_elements = []
                 for index_bin in range(index_destroy_ahead, len(self.solution.bin_packs)):
-                    for sample in self.solution.bin_packs[index_bin]:
-                        self.solution.eliminated_elements.append(sample)
+                    current_bin = self.solution.bin_packs[index_bin]
+                    self.solution.eliminated_elements.extend(current_bin.samples)
 
                 self.solution.bin_packs = self.solution.bin_packs[:index_destroy_ahead]
 
-                self.local_search(local_search=True)
+                self.local_search(local_search=True, new_population=False, fitness_index_to_replace=i)
 
-                if best_binpack_fitness <= self.solution.fitness_local_search_population:
-                    best_binpack = np.copy(self.solution.bin_packs)
-                    best_binpack_fitness = np.copy(self.solution.fitness_local_search_population)
+                if best_binpack_fitness <= self.solution.fitness_local_search_population[i]:
+                    best_binpack = deepcopy(self.solution.bin_packs)
+                    best_binpack_fitness = np.copy(self.solution.fitness_local_search_population[i])
 
-            new_local_search_population = np.append(new_local_search_population, best_binpack)
-            new_local_search_population_fitness = np.append(new_local_search_population_fitness, best_binpack_fitness)
+            # new_local_search_population.append(best_binpack)
+            # new_local_search_population_fitness = np.append(new_local_search_population_fitness, best_binpack_fitness)
 
-        self.solution.local_search_population = np.copy(new_local_search_population)
-        self.solution.fitness_local_search_population = np.copy(new_local_search_population_fitness)
+            self.solution.local_search_population[i] = deepcopy(best_binpack)
+            self.solution.fitness_local_search_population[i] = np.copy(best_binpack_fitness)
