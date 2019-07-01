@@ -1,0 +1,2 @@
+Offspring, Number_bins
+0, 139

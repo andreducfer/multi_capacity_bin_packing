@@ -50,9 +50,11 @@ if __name__ == '__main__':
 
             solution = Solution(instance)
 
-            greedy = Genetic(instance, solution)
-            greedy.genetic_algorithm()
+            genetic = Genetic(instance, solution)
+            genetic.genetic_algorithm(time_limit)
 
-            print("'%d' bins for seed '%d'" % (greedy.solution.get_num_bins(), seed))
+            print("'%d' bins for seed '%d'" % (genetic.solution.best_fitness, seed))
+
+            solution.write_to_file(solution_path)
 
         print("##########################################")
