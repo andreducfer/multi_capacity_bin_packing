@@ -11,18 +11,12 @@ class Bin:
 
         self.instance = instance                            # Access to the problem and dataset parameters
         self.used_space = np.zeros((1,2), dtype=float)      # Used space by samples inside the bin
-        # self.fitness = 0
 
         if samples_id is None:
             self.samples = []                               # Samples in this bin
         else:
             for sample_id in samples_id:
                 self.add_sample(sample_id)
-
-
-    # def evaluate(self):
-    #     fitness = (self.used_space[0][0] / self.instance.bin_constraints[0] + self.used_space[0][1] / self.instance.bin_constraints[1]) ** 2
-    #     self.fitness = fitness
 
 
     def verify_capacity(self, sample_id):
@@ -78,12 +72,6 @@ class Solution:
 
 
     def calculate_fitness_person(self, new_population=False, local_search=False, fitness_index_to_replace=None):
-        # sum_bins_fitness = 0
-        # for bin in self.bin_packs:
-        #     sum_bins_fitness = sum_bins_fitness + bin.fitness
-        #
-        # fitness_person = sum_bins_fitness / len(self.bin_packs)
-
         fitness_person = len(self.bin_packs)
 
         if new_population:
@@ -98,42 +86,24 @@ class Solution:
 
     def sort_population(self):
         if len(self.population) > 1:
-            # index_sorted_by_fitness = np.argsort(self.fitness_population)[::-1]
             index_sorted_by_fitness = np.argsort(self.fitness_population)
-
             self.population = [self.population[i] for i in index_sorted_by_fitness]
-
             self.fitness_population = self.fitness_population[index_sorted_by_fitness]
 
         if len(self.new_population) > 1:
-            # index_sorted_by_fitness = np.argsort(self.fitness_new_population)[::-1]
             index_sorted_by_fitness = np.argsort(self.fitness_new_population)
-
             self.new_population = [self.new_population[i] for i in index_sorted_by_fitness]
-
             self.fitness_new_population = self.fitness_new_population[index_sorted_by_fitness]
 
         if len(self.local_search_population) > 1:
-            # index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)[::-1]
             index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)
-
             self.local_search_population = [self.local_search_population[i] for i in index_sorted_by_fitness]
-
             self.fitness_local_search_population = self.fitness_local_search_population[index_sorted_by_fitness]
 
 
     def write_to_file(self, filename):
         with open(filename, "a+") as file:
             file.write(self.output_content)
-
-
-    # def print_and_export(self):
-    #     pack = []
-    #
-    #     for i, bin in enumerate(self.best_bin_packs):
-    #         bin_info = 'Bin ' + str(i) + 'samples: '
-    #         for sample in bin.samples:
-    #             bin_template = str(sample) + ', '
 
 
 class Genetic:
@@ -172,11 +142,9 @@ class Genetic:
 
 
     def find_best_solution(self):
-        # best_current_solution_index = np.argmax(self.solution.fitness_population)
         best_current_solution_index = np.argmin(self.solution.fitness_population)
         best_current_solution_fitness = self.solution.fitness_population[best_current_solution_index]
 
-        # if(best_current_solution_fitness >= self.solution.best_fitness):
         if (best_current_solution_fitness < self.solution.best_fitness):
             self.solution.best_bin_pack = deepcopy(self.solution.population[best_current_solution_index])
             self.solution.best_fitness = best_current_solution_fitness
@@ -190,7 +158,6 @@ class Genetic:
                 init_randomly = True
 
             self.first_fit(init_randomly=init_randomly)
-            # print('Number bins: ' + str(self.solution.get_num_bins()))
 
             self.solution.population.append(deepcopy(self.solution.bin_packs))
 
@@ -213,7 +180,6 @@ class Genetic:
             for data_index in data_indexes:
                 if new_bin.verify_capacity(data_index):
                     new_bin.add_sample([data_index])
-            # new_bin.evaluate()
 
             self.solution.bin_packs.append(new_bin)
 
@@ -314,7 +280,6 @@ class Genetic:
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
-                            # self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= three_elements[0] and one_excluded_element[1] >= three_elements[1]:
                         partial_used_space = bin.used_space - three_elements + one_excluded_element
@@ -326,7 +291,6 @@ class Genetic:
                             not_used_samples.append(bin.samples[i + 2])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1], bin.samples[i + 2]])
                             self.solution.eliminated_elements.remove(index_first)
-                            # self.solution.bin_packs[index].evaluate()
                             break
                     elif two_excluded_element[0] >= two_elements[0] and two_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + two_excluded_element
@@ -338,7 +302,6 @@ class Genetic:
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
                             self.solution.eliminated_elements.remove(index_second)
-                            # self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= two_elements[0] and one_excluded_element[1] >= two_elements[1]:
                         partial_used_space = bin.used_space - two_elements + one_excluded_element
@@ -349,7 +312,6 @@ class Genetic:
                             not_used_samples.append(bin.samples[i + 1])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i], bin.samples[i + 1]])
                             self.solution.eliminated_elements.remove(index_first)
-                            # self.solution.bin_packs[index].evaluate()
                             break
                     elif one_excluded_element[0] >= one_element[0] and one_excluded_element[1] >= one_element[1]:
                         partial_used_space = bin.used_space - one_element + one_excluded_element
@@ -359,7 +321,6 @@ class Genetic:
                             not_used_samples.append(bin.samples[i])
                             self.solution.bin_packs[index].remove_sample([bin.samples[i]])
                             self.solution.eliminated_elements.remove(index_first)
-                            # self.solution.bin_packs[index].evaluate()
                             break
 
                 if changed_bin == True:
@@ -418,7 +379,6 @@ class Genetic:
                 self.local_search(local_search=True, new_population=False, fitness_index_to_replace=i)
 
                 if best_binpack_fitness >= self.solution.fitness_local_search_population[i]:
-                # if best_binpack_fitness <= self.solution.fitness_local_search_population[i]:
                     best_binpack = deepcopy(self.solution.bin_packs)
                     best_binpack_fitness = np.copy(self.solution.fitness_local_search_population[i])
 
