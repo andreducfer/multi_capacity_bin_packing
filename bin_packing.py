@@ -3,6 +3,8 @@ from data_handler import Instance
 import numpy as np
 from copy import deepcopy
 import time
+from scipy import stats
+import csv
 
 class Bin:
     def __init__(self, instance, samples_id=None):
@@ -99,6 +101,38 @@ class Solution:
             index_sorted_by_fitness = np.argsort(self.fitness_local_search_population)
             self.local_search_population = [self.local_search_population[i] for i in index_sorted_by_fitness]
             self.fitness_local_search_population = self.fitness_local_search_population[index_sorted_by_fitness]
+
+    @classmethod
+    def statistical_test(self):
+        greedy_file = "solution/greedy.csv"
+        genetic_file = 'solution/genetic.csv'
+        wilcoxon_file = 'solution/wilcoxon_result.txt'
+        greedy_list = []
+        genetic_list = []
+
+        with open(greedy_file, 'r') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+
+            for line in csv_reader:
+                greedy_list.append(line[0])
+
+        greedy_list = list(map(int, greedy_list))
+
+        with open(genetic_file, 'r') as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+
+            for line in csv_reader:
+                genetic_list.append(line[0])
+
+        genetic_list = list(map(int, genetic_list))
+
+
+
+        wilcoxon_result = stats.wilcoxon(greedy_list, genetic_list, zero_method="wilcox", correction=True)
+        print(str(wilcoxon_result))
+
+        with open(wilcoxon_file, mode='w') as fp:
+            fp.write(str(wilcoxon_result))
 
 
     def write_to_file(self, filename):

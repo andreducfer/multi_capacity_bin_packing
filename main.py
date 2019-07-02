@@ -57,4 +57,6 @@ if __name__ == '__main__':
 
             solution.write_to_file(solution_path)
 
+            # solution.statistical_test()
+
         print("##########################################")
